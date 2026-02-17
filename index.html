@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Transformador Excel / CSV</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border: 1px solid #999;
+            padding: 4px;
+            font-size: 12px;
+        }
+
+        th {
+            background: #eee;
+            position: sticky;
+            top: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Transformar Excel / CSV a Formato Lista</h2>
+
+    <input type="file" id="fileInput" />
+    <button onclick="procesar()">Procesar</button>
+    <button onclick="descargar()">Descargar CSV</button>
+    <button onclick="descargarCategorias()">Descargar CSV Categorías</button>
+
+    <h3>Vista previa del resultado</h3>
+    <div style="max-height:400px; overflow:auto;">
+        <table id="previewTable">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        function limpiarCelular(valor) {
+            if (!valor) return "";
+            return valor.toString().replace(/\D/g, "");
+        }
+
+        /* =======================
+           VARIABLES GLOBALES
+        ======================= */
+        let resultadoPreview = [];
+        let resultadoCategorias = [];
+
+        function U(val) {
+            if (val === null || val === undefined) return "";
+            return val
+                .toString()
+                .trim()
+                .toUpperCase();
+        }
+
+        /* =======================
+           TABLAS DE CONVERSIÓN
+        ======================= */
+        const turnos = {
+            M: "MAÑANA",
+            R: "MAÑANA",
+            T: "TARDE",
+            N: "NOCHE",
+            P: "NOCHE"
+        };
+
+        function formatearDocente(nombre) {
+            if (!nombre || nombre.toString().trim() === "") {
+                return "SIN DOCENTE";
+            }
+            return `DOCENTE - ${nombre.toString().trim()}`;
+        }
+
+        function normalizarAula(aula) {
+            if (!aula) return "";
+            return aula
+                .toString()
+                .trim()
+                .toUpperCase()
+                .replace(/\s+/g, "")
+                .replace(/-/g, "");
+        }
+
+        function normalizarCiclo(valor) {
+            if (!valor) return "";
+
+            const romanos = {
+                "I": 1,
+                "II": 2,
+                "III": 3,
+                "IV": 4,
+                "V": 5,
+                "VI": 6
+            };
+
+            const v = valor.toString().trim().toUpperCase();
+
+            // Si es romano
+            if (romanos[v]) {
+                return romanos[v];
+            }
+
+            // Si ya es número
+            const num = parseInt(v, 10);
+            if (!isNaN(num) && num >= 1 && num <= 6) {
+                return num;
+            }
+
+            // Si no coincide, lo devuelve tal cual (para detectar errores)
+            return v;
+        }
+
+
+        function normalizarTurno(valor) {
+            if (!valor) {
+                return { corto: "", completo: "" };
+            }
+
+            const v = valor.toString().trim().toUpperCase();
+
+            // Turno real permitido
+            if (v === "M" || v === "R") {
+                return { corto: "M", completo: "MAÑANA" };
+            }
+
+            if (v === "T") {
+                return { corto: "T", completo: "TARDE" };
+            }
+
+            if (v === "N" || v === "P") {
+                return { corto: "N", completo: "NOCHE" };
+            }
+
+            // Fallback por si viene algo raro
+            return { corto: v, completo: v };
+        }
+
+        function obtenerDocentePorCurso(r, index, totalCursos) {
+
+            const docente1 = limpiarTexto(r["DOCENTE 1"]);
+            const docente2 = limpiarTexto(r["DOCENTE 2"]);
+
+            if (docente1 && docente2) {
+                return index === 0 ? docente1 : docente2;
+            }
+
+            if (docente1) return docente1;
+
+            if (docente2) return docente2;
+
+            return "";
+        }
+
+        function limpiarTexto(texto) {
+            if (!texto) return "";
+
+            return texto
+                .toString()
+                .trim()
+                .replace(/\s+/g, " "); // reemplaza múltiples espacios por uno solo
+        }
+
+        function obtenerTelefonoPorCurso(r, index, totalCursos) {
+
+            const tel1 = limpiarCelular(r["TELEFONO 1"]);
+            const tel2 = limpiarCelular(r["TELEFONO 2"]);
+
+            if (tel1 && tel2) {
+                return index === 0 ? tel1 : tel2;
+            }
+
+            if (tel1) return tel1;
+
+            if (tel2) return tel2;
+
+            return "";
+        }
+
+        const locales = {
+            "AREQUIPA 14": { abrev: "AR14", full: "AREQUIPA 14" },
+            "ATE 01": { abrev: "ATE1", full: "ATE 01" },
+            "BELISARIO": { abrev: "BEL", full: "BELISARIO" },
+            "BILLINGURTS": { abrev: "BILL", full: "BILLINGURTS" },
+            "CENTRAL": { abrev: "CEN", full: "CENTRAL" },
+            "CHOTA": { abrev: "CHO", full: "CHOTA" },
+            "CLÍNICA": { abrev: "CLI", full: "CLÍNICA" },
+            "ELEKTRA": { abrev: "ELE", full: "ELEKTRA" },
+            "HORACIO 1": { abrev: "HO1", full: "HORACIO 1" },
+            "HORACIO 2": { abrev: "HO2", full: "HORACIO 2" },
+            "LOS CHINOS": { abrev: "CHI", full: "LOS CHINOS" },
+            "M.IGLESIAS": { abrev: "MIG", full: "M.IGLESIAS" },
+            "MENDIOLA": { abrev: "MEN", full: "MENDIOLA" },
+            "PTE PIEDRA 2": { abrev: "PP2", full: "PTE PIEDRA 2" },
+            "SALAVERRY": { abrev: "SAL", full: "SALAVERRY" },
+            "SAN LAZARO": { abrev: "SLZ", full: "SAN LAZARO" },
+            "SJL 10": { abrev: "SJL10", full: "SJL 10" },
+            "SJL 22": { abrev: "SJL22", full: "SJL 22" },
+            "SJL 50": { abrev: "SJL50", full: "SJL 50" },
+            "VILLA EL SALVADOR": { abrev: "VES", full: "VILLA EL SALVADOR" },
+            "VILLA EL SALVADOR 2": { abrev: "VES2", full: "VILLA EL SALVADOR 2" },
+            "VISTA ALEGRE": { abrev: "VAL", full: "VISTA ALEGRE" },
+            "VILLA MARIA DEL TRIUNFO": { abrev: "VMT", full: "VILLA MARIA DEL TRIUNFO" },
+            "SJL 12": { abrev: "SJL12", full: "SJL 12" },
+            "CLINICA": { abrev: "CLI", full: "CLÍNICA" },
+            "CHINOS": { abrev: "CHI", full: "LOS CHINOS" },
+            "HORACIO": { abrev: "HO1", full: "HORACIO 1" },
+            "SAN LÁZARO": { abrev: "SLZ", full: "SAN LAZARO" },
+            "VES 2": { abrev: "VES2", full: "VILLA EL SALVADOR 2" },
+            "ELEKTRA-SOTANO": { abrev: "ELE", full: "ELEKTRA" },
+            "ROSITA": { abrev: "CEN", full: "CENTRAL" },
+            "PTE. PIEDRA 2": { abrev: "PP2", full: "PTE PIEDRA 2" },
+            "PUENTE PIEDRA 2": { abrev: "PP2", full: "PTE PIEDRA 2" },
+            "SJL -10": { abrev: "SJL10", full: "SJL 10" },
+            "SJL -22": { abrev: "SJL22", full: "SJL 22" },
+            "SJL -50": { abrev: "SJL50", full: "SJL 50" },
+            "AYLLON 8": { abrev: "ATE1", full: "ATE 01" },
+            "VES 1": { abrev: "VES", full: "VILLA EL SALVADOR" },
+            "VES 2": { abrev: "VES2", full: "VILLA EL SALVADOR 2" },
+            "V. ALEGRE": { abrev: "VAL", full: "VISTA ALEGRE" },
+            "BILLINGHURTS": { abrev: "BILL", full: "BILLINGURTS" },
+            "SJL - 50": { abrev: "SJL50", full: "SJL 50" },
+            "AYLLON": { abrev: "ATE1", full: "ATE 01" },
+            "VILLA EL SALVADOR 1": { abrev: "VES", full: "VILLA EL SALVADOR" },
+            "AREQ 14": { abrev: "AR14", full: "AREQUIPA 14" },
+            "SJL12": { abrev: "SJL12", full: "SJL 12" },
+            "AR14": { abrev: "AR14", full: "AREQUIPA 14" },
+            "ATE1": { abrev: "ATE1", full: "ATE 01" },
+            "BEL": { abrev: "BEL", full: "BELISARIO" },
+            "BILL": { abrev: "BILL", full: "BILLINGURTS" },
+            "CEN": { abrev: "CEN", full: "CENTRAL" },
+            "CHO": { abrev: "CHO", full: "CHOTA" },
+            "CLI": { abrev: "CLI", full: "CLÍNICA" },
+            "ELE": { abrev: "ELE", full: "ELEKTRA" },
+            "HO1": { abrev: "HO1", full: "HORACIO 1" },
+            "HO2": { abrev: "HO2", full: "HORACIO 2" },
+            "CHI": { abrev: "CHI", full: "LOS CHINOS" },
+            "MIG": { abrev: "MIG", full: "M.IGLESIAS" },
+            "MEN": { abrev: "MEN", full: "MENDIOLA" },
+            "PP2": { abrev: "PP2", full: "PTE PIEDRA 2" },
+            "SAL": { abrev: "SAL", full: "SALAVERRY" },
+            "SLZ": { abrev: "SLZ", full: "SAN LAZARO" },
+            "SJL10": { abrev: "SJL10", full: "SJL 10" },
+            "SJL22": { abrev: "SJL22", full: "SJL 22" },
+            "SJL50": { abrev: "SJL50", full: "SJL 50" },
+            "VES": { abrev: "VES", full: "VILLA EL SALVADOR" },
+            "VES2": { abrev: "VES2", full: "VILLA EL SALVADOR 2" },
+            "VAL": { abrev: "VAL", full: "VISTA ALEGRE" },
+            "VMT": { abrev: "VMT", full: "VILLA MARIA DEL TRIUNFO" },
+            "SJM SAN JUAN 721": { abrev: "CHI", full: "LOS CHINOS" },
+            "BELISARIO SUAREZ": { abrev: "BEL", full: "BELISARIO" },
+            "VILLANERÍA DE TRIUNFO": { abrev: "VMT", full: "VILLA MARIA DEL TRIUNFO" },
+            "VILLANERIA DE TRIUNFO": { abrev: "VMT", full: "VILLA MARIA DEL TRIUNFO" },
+            "SOTANO-ELEKTRA": { abrev: "ELE", full: "ELEKTRA" },
+            "VILLA SALVADOR 1": { abrev: "VES", full: "VILLA EL SALVADOR" },
+            "VILLA SALVADOR": { abrev: "VES", full: "VILLA EL SALVADOR" },
+            "VILLA SALVADOR 2": { abrev: "VES2", full: "VILLA EL SALVADOR 2" },
+            "HORACIO ZEVALLOS": { abrev: "HO1", full: "HORACIO 1" },
+            "ROSITA-CENTRAL": { abrev: "CEN", full: "CENTRAL" },
+            "AREQUIPA 14": { abrev: "AR14", full: "AREQUIPA 14" },
+            "AV. AREQUIPA 14": { abrev: "AR14", full: "AREQUIPA 14" },
+            "AV AREQUIPA 14": { abrev: "AR14", full: "AREQUIPA 14" },
+            "HORACIO ZEBALLOS 1": { abrev: "HO1", full: "HORACIO 1" },
+            "PSJE ROSITA - CENTRAL": { abrev: "CEN", full: "CENTRAL" },
+            "ATE - AYLLON 8": { abrev: "ATE1", full: "ATE 01" },
+            "ATE01": { abrev: "ATE1", full: "ATE 01" },
+            "ATE1": { abrev: "ATE1", full: "ATE 01" },
+            "ATE": { abrev: "ATE1", full: "ATE 01" },
+            "PASAJE NUEVA ROSITA 140": { abrev: "CEN", full: "CENTRAL" },
+            "HORACIO LAS PRADERAS DE PARIACHI": { abrev: "HO2", full: "HORACIO 2" },
+            "SAN LAZARO 216": { abrev: "SLZ", full: "SAN LAZARO" },
+            "VILLA EL SALVADOR PARQUE INDUSTRIAL": { abrev: "VES", full: "VILLA EL SALVADOR" },
+            "PUENTE PIEDRA 712": { abrev: "ELE", full: "ELEKTRA" },
+            "AV ALFONSO UGARTE CDRA 10": { abrev: "CLI", full: "CLÍNICA" },
+            "AV AREQUIPA CDRA 14": { abrev: "AR14", full: "AREQUIPA 14" },
+            "ATE": { abrev: "ATE1", full: "ATE 01" },
+            "BILLINGHURTS": { abrev: "BILL", full: "BILLINGURTS" },
+            "PTE. PIEDRA 2": { abrev: "PP2", full: "PTE PIEDRA 2" },
+            "SAN JUAN DE LURIGANCHO URB LOS JARDINES DE SAN JUAN": { abrev: "SJL10", full: "SJL10" },
+            "VILLA MARIA DEL TRIUNFO": { abrev: "VMT", full: "VILLA MARIA DEL TRIUNFO" },
+            "ATE VITARTE AYLLON 831": { abrev: "ATE1", full: "ATE 01" },
+            "HORACIO LAS PRADERAS DE PARIACHI": { abrev: "HO2", full: "HORACIO 2" },
+            "VILLA EL SALVADOR 2": { abrev: "VES2", full: "VILLA EL SALVADOR 2" },
+            "BILLINGHURST": { abrev: "BILL", full: "BILLINGURTS" },
+            "HORACIO ZEVALLOS": { abrev: "HO1", full: "HORACIO 1" },
+            "ALFREDO MENDIOLA 3349": { abrev: "MEN", full: "MENDIOLA" },
+            "PUENTE PIEDRA 712": { abrev: "ELE", full: "ELEKTRA" },
+            "PUENTE PIEDRA 191": { abrev: "PP2", full: "PTE PIEDRA 2" },
+            "SAN LAZARO 216": { abrev: "SLZ", full: "SAN LAZARO" },
+            "VILLA EL SALVADOR PARQUE INDUSTRIAL": { abrev: "VES", full: "VILLA EL SALVADOR" },
+            "AYLLON VISTA ALEGRE": { abrev: "VAL", full: "VISTA ALEGRE" },
+            "SAN JUAN DE LURIGANCHO 5010": { abrev: "SJL50", full: "SJL 50" },
+            "SAN JUAN DE LURIGANCHO SAN HILARION": { abrev: "SJL22", full: "SJL 22" },
+            "AV AREQUIPA CDRA 14": { abrev: "AR14", full: "AREQUIPA 14" },
+            "BELISARIO SUAREZ": { abrev: "BEL", full: "BELISARIO" },
+            "PASAJE NUEVA ROSITA 140": { abrev: "CEN", full: "CENTRAL" },
+            "SJM MIGUEL IGLESIAS SAN ANTONIO DE PADUA II ETAPA": { abrev: "MIG", full: "M.IGLESIAS" },
+            "SJM SAN JUAN 721": { abrev: "CHI", full: "LOS CHINOS" },
+            "AV ALFONSO UGARTE CDRA 10": { abrev: "CLI", full: "CLÍNICA" },
+            "ROSITA": { abrev: "CEN", full: "CENTRAL" },
+            "BELISARIO SUAREZ": { abrev: "BEL", full: "BELISARIO" },
+            "VILLAMARÍA DEL TRIUNFO": { abrev: "VMT", full: "VILLA MARIA DEL TRIUNFO" },
+            "SJL 12 SANTA ROSA": { abrev: "SJL12", full: "SJL 12" },
+            "SJL -12": { abrev: "SJL12", full: "SJL 12" },
+            "SJL-12": { abrev: "SJL12", full: "SJL 12" },
+            "SJL 12": { abrev: "SJL12", full: "SJL 12" },
+            "AREQUIPA 9": { abrev: "AR09", full: "AREQUIPA 09" },
+            "AREQ 9": { abrev: "AR09", full: "AREQUIPA 09" },
+            "AREQUIPA 09": { abrev: "AR09", full: "AREQUIPA 09" },
+            "AREQ 09": { abrev: "AR09", full: "AREQUIPA 09" },
+            "ATE - AYLLON": { abrev: "ATE1", full: "ATE 01" },
+            "HORACIO ZEVALLOS 1": { abrev: "HO1", full: "HORACIO 1" },
+            "HORACIO ZEVALLOS 2": { abrev: "HO2", full: "HORACIO 2" },
+            "ELEKTRA-ZOTANO": { abrev: "ELE", full: "ELEKTRA" }
+        };
+
+        /* =======================
+           FUNCIONES AUXILIARES
+        ======================= */
+        function normalizarLocal(valor) {
+            if (!valor) return { abrev: "UNK", full: "" };
+            valor = valor.toUpperCase().trim();
+            return locales[valor] || { abrev: "UNK", full: valor };
+        }
+
+        function primerasLetras(texto, n) {
+            if (!texto) return "";
+
+            return texto
+                .toString()
+                .trim()
+                .replace(/[^A-ZÁÉÍÓÚÜÑ ]/gi, "")
+                .substring(0, n)
+                .toUpperCase();
+        }
+
+
+        function csvCell(value) {
+            if (value === null || value === undefined) return "";
+            value = value.toString();
+            if (value.includes("|") || value.includes('"') || value.includes("\n")) {
+                value = value.replace(/"/g, '""');
+                return `"${value}"`;
+            }
+            return value;
+        }
+
+        function obtenerAulaPorCurso(r, index, totalCursos) {
+            if (totalCursos > 1) {
+                // Curso 1 → AULA
+                if (index === 0) return normalizarAula(r.AULA);
+
+                // Curso 2 → AULA2 o AULA si no existe
+                return normalizarAula(r.AULA2 || r.AULA);
+            }
+            // Solo un curso → AULA
+            return normalizarAula(r.AULA);
+        }
+
+        function descargarCategorias() {
+            if (resultadoCategorias.length === 0) {
+                alert("No hay datos de categorías");
+                return;
+            }
+
+            const csv = resultadoCategorias
+                .map(row => row.map(csvCell).join(";"))
+                .join("\n");
+
+            const BOM = "\uFEFF";
+            const blob = new Blob([BOM + csv], {
+                type: "text/csv;charset=utf-8;"
+            });
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "categorias PATH.csv";
+            a.click();
+        }
+
+        /* =======================
+           PROCESAMIENTO
+        ======================= */
+        function procesar() {
+            const file = document.getElementById("fileInput").files[0];
+            if (!file) return alert("Seleccione un archivo");
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: "array" });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                let rows = XLSX.utils.sheet_to_json(sheet);
+
+                resultadoPreview = [];
+                resultadoCategorias = [];
+
+                const headers = [
+                    "shortname", "fullname", "carrera_aula", "turno", "horario",
+                    "dni_docente", "docente", "celular_docente", "acceso_docente",
+                    "tutor", "numero_estudiantes", "url"
+                ];
+
+                resultadoPreview.push(headers);
+
+                resultadoCategorias.push([
+                    "category_path",
+                    "shortname",
+                    "fullname",
+                    "format",
+                    "templatecourse",
+                    "startdate",
+                    "enddate"
+                ]);
+
+                rows.forEach(r => {
+                    const turno = normalizarTurno(r.TURNO);
+
+                    const carreraLimpia = limpiarTexto(r.CARRERA);
+                    const carrera3 = primerasLetras(carreraLimpia, 3);
+
+                    const ciclo = normalizarCiclo(r.CICLO);
+                    const horario = r.horario || r.HORARIO || "";
+                    const cantidad = r.CANTIDAD || "";
+
+                    const cursos = [];
+
+                    // CURSO 1
+                    if (r["CURSO 1"]) {
+                        cursos.push({
+                            curso: limpiarTexto(r["CURSO 1"]),
+                            local: normalizarLocal(r["LOCAL 1"])
+                        });
+                    }
+
+                    // CURSO 2
+                    if (r["CURSO 2"]) {
+                        cursos.push({
+                            curso: limpiarTexto(r["CURSO 2"]),
+                            local: normalizarLocal(r["LOCAL 2"] || r["LOCAL 1"])
+                        });
+                    }
+
+                    cursos.forEach((c, i) => {
+                        const sufijo = cursos.length > 1 ? (i === 0 ? "-A" : "-B") : "";
+
+                        const aula = obtenerAulaPorCurso(r, i, cursos.length);
+                        const curso4 = primerasLetras(c.curso, 4);
+
+                        const docenteFinal = obtenerDocentePorCurso(r, i, cursos.length);
+                        const telefonoFinal = obtenerTelefonoPorCurso(r, i, cursos.length);
+
+                        const shortname =
+                            `AULA${aula}${turno.corto}${sufijo}-${c.local.abrev}-FEB26-${carrera3}-${ciclo}-${curso4}`;
+
+                        const nombreCurso = limpiarTexto(c.curso);
+                        const fullname = `AULA-${aula}${sufijo}-${carrera3}-${ciclo}-FEB26-${nombreCurso} (${c.local.full}-${turno.completo})`;
+
+                        resultadoPreview.push([
+                            U(shortname),
+                            U(fullname),
+                            U(carreraLimpia),
+                            U(turno.completo),
+                            U(horario),
+                            "",
+                            U(formatearDocente(docenteFinal)),
+                            U(telefonoFinal),
+                            "SI",
+                            "",
+                            U(cantidad),
+                            ""
+                        ]);
+
+                        // CSV de categorías
+                        resultadoCategorias.push([
+                            U(`2026 / FEBRERO / ${r.CARRERA} / ${c.local.full} / ${ciclo}C`),
+                            U(shortname),
+                            U(fullname),
+                            "tiles",
+                            "MODZOOM2",
+                            "20260210",
+                            "0"
+                        ]);
+                    });
+                });
+
+                renderPreviewTable();
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        /* =======================
+           VISTA PREVIA
+        ======================= */
+        function renderPreviewTable() {
+            const table = document.getElementById("previewTable");
+            const thead = table.querySelector("thead");
+            const tbody = table.querySelector("tbody");
+
+            thead.innerHTML = "";
+            tbody.innerHTML = "";
+
+            const trHead = document.createElement("tr");
+            resultadoPreview[0].forEach(h => {
+                const th = document.createElement("th");
+                th.textContent = h;
+                trHead.appendChild(th);
+            });
+            thead.appendChild(trHead);
+
+            for (let i = 1; i < resultadoPreview.length; i++) {
+                const tr = document.createElement("tr");
+                resultadoPreview[i].forEach(cell => {
+                    const td = document.createElement("td");
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            }
+        }
+
+        /* =======================
+           DESCARGA CSV UTF-8 BOM
+        ======================= */
+        function descargar() {
+            if (resultadoPreview.length === 0) {
+                alert("No hay datos procesados");
+                return;
+            }
+
+            const csv = resultadoPreview
+                .map(row => row.map(csvCell).join(";"))
+                .join("\n");
+
+            const BOM = "\uFEFF";
+            const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "cursos.csv";
+            a.click();
+        }
+    </script>
+
+</body>
+
+</html>
