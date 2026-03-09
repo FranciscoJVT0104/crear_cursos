@@ -35,8 +35,8 @@
     <h2>Transformar Excel / CSV a Formato Lista</h2>
 
     <input type="file" id="fileInput" />
-    <label for="startDateInput">Fecha de inicio (dd/mm/yyyy):</label>
-    <input type="text" id="startDateInput" placeholder="10/02/2026" />
+   <label for="startDateInput">Fecha de inicio:</label>
+    <input type="date" id="startDateInput" value="2026-02-10" />
     <label for="monthSelect">Mes:</label>
     <select id="monthSelect">
         <option value="ENE">ENERO</option>
@@ -390,7 +390,7 @@
             return normalizarAula(r.AULA);
         }
 
-       function convertirFechaInicioAStartdate() {
+     function convertirFechaInicioAStartdate() {
             const valor = (document.getElementById("startDateInput").value || "").trim();
             let match = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
 
@@ -402,7 +402,7 @@
             }
 
             if (!match) {
-                alert("Ingrese una fecha válida en formato dd/mm/yyyy");
+                alert("Ingrese una fecha válida");
                 return null;
             }
 
@@ -544,6 +544,7 @@
                         const shortname =  `AULA${aula}${turno.corto}${sufijo}-${c.local.abrev}-${periodo.abrevMes}${periodo.anioCorto}-${carrera3}-${ciclo}-${curso4}`;
                         const nombreCurso = limpiarTexto(c.curso);
                         const fullname = `AULA-${aula}${sufijo}-${carrera3}-${ciclo}-${periodo.abrevMes}${periodo.anioCorto}-${nombreCurso} (${c.local.full}-${turno.completo})`;
+                        
                         resultadoPreview.push([
                             U(shortname),
                             U(fullname),
@@ -561,7 +562,7 @@
 
                         // CSV de categorías
                         resultadoCategorias.push([
-                            U(`${periodo.anio} / ${periodo.nombreMes} / ${r.CARRERA} / ${c.local.full} / ${ciclo}C`),
+                              U(`${periodo.anio} / ${periodo.nombreMes} / ${r.CARRERA} / ${c.local.full} / ${ciclo}C`),
                             U(shortname),
                             U(fullname),
                             "tiles",
