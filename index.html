@@ -35,6 +35,8 @@
     <h2>Transformar Excel / CSV a Formato Lista</h2>
 
     <input type="file" id="fileInput" />
+    <label for="startDateInput">Fecha de inicio (dd/mm/yyyy):</label>
+    <input type="text" id="startDateInput" placeholder="10/02/2026" />
     <button onclick="procesar()">Procesar</button>
     <button onclick="descargar()">Descargar CSV</button>
     <button onclick="descargarCategorias()">Descargar CSV Categorías</button>
@@ -372,6 +374,32 @@
             return normalizarAula(r.AULA);
         }
 
+        function convertirFechaInicioAStartdate() {
+            const valor = (document.getElementById("startDateInput").value || "").trim();
+            const match = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+            if (!match) {
+                alert("Ingrese una fecha válida en formato dd/mm/yyyy");
+                return null;
+            }
+
+            const dia = Number(match[1]);
+            const mes = Number(match[2]);
+            const anio = Number(match[3]);
+            const fecha = new Date(anio, mes - 1, dia);
+
+            if (
+                fecha.getFullYear() !== anio ||
+                fecha.getMonth() !== mes - 1 ||
+                fecha.getDate() !== dia
+            ) {
+                alert("La fecha de inicio no es válida");
+                return null;
+            }
+
+            return `${anio}${String(mes).padStart(2, "0")}${String(dia).padStart(2, "0")}`;
+        }
+
         function descargarCategorias() {
             if (resultadoCategorias.length === 0) {
                 alert("No hay datos de categorías");
@@ -400,6 +428,9 @@
         function procesar() {
             const file = document.getElementById("fileInput").files[0];
             if (!file) return alert("Seleccione un archivo");
+
+            const startdate = convertirFechaInicioAStartdate();
+            if (!startdate) return;
 
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -494,7 +525,7 @@
                             U(fullname),
                             "tiles",
                             "MODZOOM2",
-                            "20260210",
+                            startdate,
                             "0"
                         ]);
                     });
