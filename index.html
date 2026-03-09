@@ -37,6 +37,23 @@
     <input type="file" id="fileInput" />
     <label for="startDateInput">Fecha de inicio (dd/mm/yyyy):</label>
     <input type="text" id="startDateInput" placeholder="10/02/2026" />
+    <label for="startDateInput">Fecha de inicio (dd/mm/yyyy):</label>
+    <input type="text" id="startDateInput" placeholder="10/02/2026" />
+    <label for="monthSelect">Mes:</label>
+    <select id="monthSelect">
+        <option value="ENE">ENERO</option>
+        <option value="FEB" selected>FEBRERO</option>
+        <option value="MAR">MARZO</option>
+        <option value="ABR">ABRIL</option>
+        <option value="MAY">MAYO</option>
+        <option value="JUN">JUNIO</option>
+        <option value="JUL">JULIO</option>
+        <option value="AGO">AGOSTO</option>
+        <option value="SEP">SEPTIEMBRE</option>
+        <option value="OCT">OCTUBRE</option>
+        <option value="NOV">NOVIEMBRE</option>
+        <option value="DIC">DICIEMBRE</option>
+    </select>
     <button onclick="procesar()">Procesar</button>
     <button onclick="descargar()">Descargar CSV</button>
     <button onclick="descargarCategorias()">Descargar CSV Categorías</button>
@@ -374,9 +391,16 @@
             return normalizarAula(r.AULA);
         }
 
-         function convertirFechaInicioAStartdate() {
+       function convertirFechaInicioAStartdate() {
             const valor = (document.getElementById("startDateInput").value || "").trim();
-            const match = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            let match = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+            if (!match) {
+                match = valor.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                if (match) {
+                    match = [match[0], match[3], match[2], match[1]];
+                }
+            }
 
             if (!match) {
                 alert("Ingrese una fecha válida en formato dd/mm/yyyy");
@@ -397,19 +421,16 @@
                 return null;
             }
 
-            return `${anio}${String(mes).padStart(2, "0")}${String(dia).padStart(2, "0")}`;
+            return {
+                startdate: `${anio}${String(mes).padStart(2, "0")}${String(dia).padStart(2, "0")}`,
+                anio
+            };
         }
 
-        function obtenerPeriodoSeleccionado() {
+        function obtenerPeriodoSeleccionado(anio) {
             const mesSelect = document.getElementById("monthSelect");
             const nombreMes = mesSelect.options[mesSelect.selectedIndex].text;
             const abrevMes = mesSelect.value;
-            const anio = Number((document.getElementById("yearInput").value || "").trim());
-
-            if (!anio || anio < 2000 || anio > 2100) {
-                alert("Ingrese un año válido entre 2000 y 2100");
-                return null;
-            }
 
             return {
                 nombreMes,
@@ -417,32 +438,6 @@
                 anio,
                 anioCorto: String(anio).slice(-2)
             };
-        }
-
-        function convertirFechaInicioAStartdate() {
-            const valor = (document.getElementById("startDateInput").value || "").trim();
-            const match = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-
-            if (!match) {
-                alert("Ingrese una fecha válida en formato dd/mm/yyyy");
-                return null;
-            }
-
-            const dia = Number(match[1]);
-            const mes = Number(match[2]);
-            const anio = Number(match[3]);
-            const fecha = new Date(anio, mes - 1, dia);
-
-            if (
-                fecha.getFullYear() !== anio ||
-                fecha.getMonth() !== mes - 1 ||
-                fecha.getDate() !== dia
-            ) {
-                alert("La fecha de inicio no es válida");
-                return null;
-            }
-
-            return `${anio}${String(mes).padStart(2, "0")}${String(dia).padStart(2, "0")}`;
         }
 
         function descargarCategorias() {
@@ -474,14 +469,13 @@
             const file = document.getElementById("fileInput").files[0];
             if (!file) return alert("Seleccione un archivo");
 
-            const startdate = convertirFechaInicioAStartdate();
-            if (!startdate) return;
+            const datosFechaInicio = convertirFechaInicioAStartdate();
+            if (!datosFechaInicio) return;
 
-            const periodo = obtenerPeriodoSeleccionado();
+            const { startdate, anio } = datosFechaInicio;
+
+            const periodo = obtenerPeriodoSeleccionado(anio);
             if (!periodo) return;
-
-            const startdate = convertirFechaInicioAStartdate();
-            if (!startdate) return;
 
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -548,10 +542,9 @@
                         const docenteFinal = obtenerDocentePorCurso(r, i, cursos.length);
                         const telefonoFinal = obtenerTelefonoPorCurso(r, i, cursos.length);
 
-                        const shortname = `AULA${aula}${turno.corto}${sufijo}-${c.local.abrev}-${periodo.abrevMes}${periodo.anioCorto}-${carrera3}-${ciclo}-${curso4}`;
+                        const shortname =  `AULA${aula}${turno.corto}${sufijo}-${c.local.abrev}-${periodo.abrevMes}${periodo.anioCorto}-${carrera3}-${ciclo}-${curso4}`;
                         const nombreCurso = limpiarTexto(c.curso);
-                        const fullname = const fullname = `AULA-${aula}${sufijo}-${carrera3}-${ciclo}-${periodo.abrevMes}${periodo.anioCorto}-${nombreCurso} (${c.local.full}-${turno.completo})`;
-
+                        const fullname = `AULA-${aula}${sufijo}-${carrera3}-${ciclo}-${periodo.abrevMes}${periodo.anioCorto}-${nombreCurso} (${c.local.full}-${turno.completo})`;
                         resultadoPreview.push([
                             U(shortname),
                             U(fullname),
