@@ -37,22 +37,14 @@
     <input type="file" id="fileInput" />
    <label for="startDateInput">Fecha de inicio:</label>
     <input type="date" id="startDateInput" value="2026-02-10" />
-    <label for="monthSelect">Mes:</label>
-    <select id="monthSelect">
-        <option value="ENE">ENERO</option>
-        <option value="FEB" selected>FEBRERO</option>
-        <option value="MAR">MARZO</option>
-        <option value="ABR">ABRIL</option>
-        <option value="MAY">MAYO</option>
-        <option value="JUN">JUNIO</option>
-        <option value="JUL">JULIO</option>
-        <option value="AGO">AGOSTO</option>
-        <option value="SEP">SEPTIEMBRE</option>
-        <option value="OCT">OCTUBRE</option>
-        <option value="NOV">NOVIEMBRE</option>
-        <option value="DIC">DICIEMBRE</option>
-    </select>
-    
+    <label for="careerSelect">Carrera:</label>
+    <select id="careerSelect">
+        <option value="ENFERMERIA">ENFERMERIA</option>
+        <option value="FARMACIA">FARMACIA</option>
+        <option value="FISIOTERAPIA">FISIOTERAPIA</option>
+        <option value="LABORATORIO">LABORATORIO</option>
+        <option value="PROTESIS">PROTESIS</option>
+    </select>    
     <button onclick="procesar()">Procesar</button>
     <button onclick="descargar()">Descargar CSV</button>
     <button onclick="descargarCategorias()">Descargar CSV Categorías</button>
@@ -389,8 +381,7 @@
             // Solo un curso → AULA
             return normalizarAula(r.AULA);
         }
-
-     function convertirFechaInicioAStartdate() {
+ function convertirFechaInicioAStartdate() {
             const valor = (document.getElementById("startDateInput").value || "").trim();
             let match = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
 
@@ -422,22 +413,50 @@
 
             return {
                 startdate: `${anio}${String(mes).padStart(2, "0")}${String(dia).padStart(2, "0")}`,
-                anio
+                anio,
+                mes
             };
         }
 
-        function obtenerPeriodoSeleccionado(anio) {
-            const mesSelect = document.getElementById("monthSelect");
-            const nombreMes = mesSelect.options[mesSelect.selectedIndex].text;
-            const abrevMes = mesSelect.value;
+        function obtenerPeriodoDesdeFecha(anio, mes) {
+            const meses = [
+                { nombre: "ENERO", abrev: "ENE" },
+                { nombre: "FEBRERO", abrev: "FEB" },
+                { nombre: "MARZO", abrev: "MAR" },
+                { nombre: "ABRIL", abrev: "ABR" },
+                { nombre: "MAYO", abrev: "MAY" },
+                { nombre: "JUNIO", abrev: "JUN" },
+                { nombre: "JULIO", abrev: "JUL" },
+                { nombre: "AGOSTO", abrev: "AGO" },
+                { nombre: "SEPTIEMBRE", abrev: "SEP" },
+                { nombre: "OCTUBRE", abrev: "OCT" },
+                { nombre: "NOVIEMBRE", abrev: "NOV" },
+                { nombre: "DICIEMBRE", abrev: "DIC" }
+            ];
+
+            const periodoMes = meses[mes - 1] || { nombre: "", abrev: "" };
 
             return {
-                nombreMes,
-                abrevMes,
+                nombreMes: periodoMes.nombre,
+                abrevMes: periodoMes.abrev,
                 anio,
                 anioCorto: String(anio).slice(-2)
             };
         }
+
+        function obtenerCarreraSeleccionada() {
+            const carrera = (document.getElementById("careerSelect").value || "").trim();
+            if (!carrera) {
+                alert("Seleccione una carrera");
+                return null;
+            }
+
+            const carreraLimpia = limpiarTexto(carrera);
+            return {
+                nombre: carreraLimpia,
+                abrev: primerasLetras(carreraLimpia, 3)
+            };
+        }  
 
         function descargarCategorias() {
             if (resultadoCategorias.length === 0) {
@@ -471,10 +490,11 @@
             const datosFechaInicio = convertirFechaInicioAStartdate();
             if (!datosFechaInicio) return;
 
-            const { startdate, anio } = datosFechaInicio;
+            const { startdate, anio, mes } = datosFechaInicio;
 
-            const periodo = obtenerPeriodoSeleccionado(anio);
-            if (!periodo) return;
+            const periodo = obtenerPeriodoDesdeFecha(anio, mes);
+            const carreraSeleccionada = obtenerCarreraSeleccionada();
+            if (!carreraSeleccionada) return;
 
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -507,8 +527,8 @@
                 rows.forEach(r => {
                     const turno = normalizarTurno(r.TURNO);
 
-                    const carreraLimpia = limpiarTexto(r.CARRERA);
-                    const carrera3 = primerasLetras(carreraLimpia, 3);
+                    const carreraLimpia = carreraSeleccionada.nombre;
+                    const carrera3 = carreraSeleccionada.abrev;
 
                     const ciclo = normalizarCiclo(r.CICLO);
                     const horario = r.horario || r.HORARIO || "";
@@ -562,7 +582,7 @@
 
                         // CSV de categorías
                         resultadoCategorias.push([
-                              U(`${periodo.anio} / ${periodo.nombreMes} / ${r.CARRERA} / ${c.local.full} / ${ciclo}C`),
+                            U(`${periodo.anio} / ${periodo.nombreMes} / ${carreraLimpia} / ${c.local.full} / ${ciclo}C`),
                             U(shortname),
                             U(fullname),
                             "tiles",
