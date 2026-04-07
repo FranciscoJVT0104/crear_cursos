@@ -425,12 +425,37 @@
 
         function normalizarAula(aula) {
             if (!aula) return "";
-            return aula
-                .toString()
-                .trim()
-                .toUpperCase()
-                .replace(/\s+/g, "")
-                .replace(/-/g, "");
+            let s = aula.toString().toUpperCase().trim();
+            
+            const regex = /([A-Z]-?)?(\d+)/g;
+            let match;
+            let lastValid = "";
+            
+            while ((match = regex.exec(s)) !== null) {
+                let prefixWithHyphen = match[1] || ""; 
+                let digits = match[2]; 
+                
+                if (prefixWithHyphen) {
+                    const prefixChar = prefixWithHyphen[0];
+                    const isAllowedPrefix = "ABCDNSOE".includes(prefixChar);
+                    
+                    // Verificamos si el prefijo es independiente (no tiene otra letra pegada antes)
+                    let isStandalone = true;
+                    if (match.index > 0) {
+                        const charBefore = s[match.index - 1];
+                        if (/[A-Z]/.test(charBefore)) isStandalone = false;
+                    }
+                    
+                    if (isAllowedPrefix && isStandalone) {
+                        lastValid = prefixWithHyphen + digits;
+                    } else {
+                        lastValid = digits;
+                    }
+                } else {
+                    lastValid = digits;
+                }
+            }
+            return lastValid;
         }
 
         function normalizarCiclo(valor) {
