@@ -395,6 +395,14 @@
                 .toUpperCase();
         }
 
+        function removerTildes(texto) {
+            if (!texto) return "";
+            return texto
+                .toString()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+        }
+
         /* =======================
            TABLAS DE CONVERSIÓN
         ======================= */
@@ -894,7 +902,7 @@
                             const fullname = `AULA-${aula}${sufijo}-${carrera3}-${ciclo}-${periodo.abrevMes}${periodo.anioCorto}-${nombreCurso} (${c.local.full}-${turno.completo})`;
 
                             resultadoPreview.push([
-                                U(shortname),
+                                removerTildes(U(shortname)),
                                 U(fullname),
                                 U(carreraLimpia),
                                 U(turno.completo),
@@ -911,7 +919,7 @@
                             // CSV de categorías
                             resultadoCategorias.push([
                                 U(`${periodo.anio} / ${periodo.nombreMes} / ${carreraLimpia} / ${c.local.full} / ${ciclo}C`),
-                                U(shortname),
+                                removerTildes(U(shortname)),
                                 U(fullname),
                                 "tiles",
                                 "MODZOOM2",
@@ -1012,7 +1020,7 @@
             const pathsUnicos = [...new Set(paths)].sort();
 
             const carrera = obtenerCarreraSeleccionada();
-            const abrev = carrera ? carrera.abrev : "";
+            const abrev = carrera ? removerTildes(carrera.abrev) : "";
             const fileName = abrev ? `paths-${abrev}.csv` : "paths.csv";
 
             // Incluir encabezado
