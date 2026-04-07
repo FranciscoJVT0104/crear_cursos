@@ -455,7 +455,7 @@
                     lastValid = digits;
                 }
             }
-            return lastValid;
+            return lastValid.replace(/-/g, "");
         }
 
         function normalizarCiclo(valor) {
