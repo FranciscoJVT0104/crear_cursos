@@ -1,63 +1,381 @@
-<!DOCTYPE html>
-<html lang="es">
-
-<head>
-    <meta charset="UTF-8">
-    <title>Transformador Excel / CSV</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        header h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+        }
+
+        .grid-config {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+
+        input[type="date"],
+        select {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="date"]:focus,
+        select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 1rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #f1f5f9;
+            margin-bottom: 2rem;
+        }
+
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--primary);
+            background: #eff6ff;
+        }
+
+        .drop-zone i {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .drop-zone p {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .drop-zone .file-name {
+            margin-top: 1rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.625rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background-color: #fff;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #059669;
+            transform: translateY(-1px);
+        }
+
+        .results-section {
+            margin-top: 3rem;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .table-container {
+            border-radius: 0.75rem;
+            overflow: auto;
+            border: 1px solid var(--border);
+            max-height: 500px;
+            background: white;
         }
 
         table {
-            border-collapse: collapse;
             width: 100%;
-        }
-
-        th,
-        td {
-            border: 1px solid #999;
-            padding: 4px;
-            font-size: 12px;
+            border-collapse: collapse;
+            font-size: 0.85rem;
         }
 
         th {
-            background: #eee;
+            background: #f1f5f9;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-muted);
             position: sticky;
             top: 0;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: #f8fafc;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
         }
     </style>
 </head>
 
 <body>
 
-    <h2>Transformar Excel / CSV a Formato Lista</h2>
+    <div class="container animate-fade-in">
+        <header>
+            <h1><i class="fa-solid fa-file-excel"></i> Transformador de Cursos</h1>
+            <p>Convierte tus archivos Excel a formato de lista para Moodle</p>
+        </header>
 
-    <input type="file" id="fileInput" />
-   <label for="startDateInput">Fecha de inicio:</label>
-    <input type="date" id="startDateInput" value="2026-02-10" />
-    <label for="careerSelect">Carrera:</label>
-    <select id="careerSelect">
-        <option value="ENFERMERIA">ENFERMERIA</option>
-        <option value="FARMACIA">FARMACIA</option>
-        <option value="FISIOTERAPIA">FISIOTERAPIA</option>
-        <option value="LABORATORIO">LABORATORIO</option>
-        <option value="PROTESIS">PROTESIS</option>
-    </select>    
-    <button onclick="procesar()">Procesar</button>
-    <button onclick="descargar()">Descargar CSV</button>
-    <button onclick="descargarCategorias()">Descargar CSV Categorías</button>
+        <div class="card">
+            <div class="grid-config">
+                <div class="form-group">
+                    <label for="startDateInput"><i class="fa-regular fa-calendar"></i> Fecha de inicio</label>
+                    <input type="date" id="startDateInput" value="2026-02-10" />
+                </div>
+                <div class="form-group">
+                    <label for="careerSelect"><i class="fa-solid fa-graduation-cap"></i> Carrera</label>
+                    <select id="careerSelect">
+                        <option value="ENFERMERIA">ENFERMERÍA</option>
+                        <option value="FARMACIA">FARMACIA</option>
+                        <option value="FISIOTERAPIA">FISIOTERAPIA</option>
+                        <option value="LABORATORIO">LABORATORIO</option>
+                        <option value="PROTESIS">PRÓTESIS</option>
+                    </select>
+                </div>
+            </div>
 
-    <h3>Vista previa del resultado</h3>
-    <div style="max-height:400px; overflow:auto;">
-        <table id="previewTable">
-            <thead></thead>
-            <tbody></tbody>
-        </table>
+            <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <p>Haz clic para seleccionar o arrastra tu archivo Excel aquí</p>
+                <div class="file-name" id="fileNameDisplay"></div>
+                <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" />
+            </div>
+
+            <div class="button-group">
+                <button onclick="procesar()" class="btn-primary" id="btnProcesar">
+                    <i class="fa-solid fa-gear"></i> 
+                    <span>Procesar Archivo</span>
+                    <div class="spinner" id="spinner"></div>
+                </button>
+                <button onclick="descargar()" class="btn-success" id="btnDescargar" style="display: none;">
+                    <i class="fa-solid fa-download"></i> Descargar Cursos
+                </button>
+                <button onclick="descargarCategorias()" class="btn-success" id="btnDescargarCat" style="display: none;">
+                    <i class="fa-solid fa-layer-group"></i> Descargar Categorías
+                </button>
+                <button onclick="descargarSoloPath()" class="btn-secondary" id="btnSoloPath" style="display: none;">
+                    <i class="fa-solid fa-folder-tree"></i> Solo Path
+                </button>
+            </div>
+        </div>
+
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <div class="results-header">
+                <h3><i class="fa-solid fa-list-check"></i> Vista Previa del Resultado</h3>
+                <span class="status-badge" id="rowCountBadge">0 filas procesadas</span>
+            </div>
+            <div class="table-container">
+                <table id="previewTable">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
+        // Actualizar nombre del archivo seleccionado
+        const fileInput = document.getElementById('fileInput');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const dropZone = document.getElementById('dropZone');
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                fileNameDisplay.textContent = e.target.files[0].name;
+            }
+        });
+
+        // Eventos Drag & Drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                fileNameDisplay.textContent = e.dataTransfer.files[0].name;
+            }
+        });
+
         function limpiarCelular(valor) {
             if (!valor) return "";
             return valor.toString().replace(/\D/g, "");
@@ -381,7 +699,7 @@
             // Solo un curso → AULA
             return normalizarAula(r.AULA);
         }
- function convertirFechaInicioAStartdate() {
+        function convertirFechaInicioAStartdate() {
             const valor = (document.getElementById("startDateInput").value || "").trim();
             let match = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
 
@@ -456,13 +774,17 @@
                 nombre: carreraLimpia,
                 abrev: primerasLetras(carreraLimpia, 3)
             };
-        }  
+        }
 
         function descargarCategorias() {
             if (resultadoCategorias.length === 0) {
                 alert("No hay datos de categorías");
                 return;
             }
+
+            const carrera = obtenerCarreraSeleccionada();
+            const abrev = carrera ? carrera.abrev : "";
+            const fileName = abrev ? `categorias-PATH-${abrev}.csv` : "categorias-PATH.csv";
 
             const csv = resultadoCategorias
                 .map(row => row.map(csvCell).join(";"))
@@ -476,7 +798,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = "categorias PATH.csv";
+            a.download = fileName;
             a.click();
         }
 
@@ -485,115 +807,136 @@
         ======================= */
         function procesar() {
             const file = document.getElementById("fileInput").files[0];
-            if (!file) return alert("Seleccione un archivo");
+            if (!file) return alert("Por favor, seleccione un archivo primero.");
 
             const datosFechaInicio = convertirFechaInicioAStartdate();
             if (!datosFechaInicio) return;
 
-            const { startdate, anio, mes } = datosFechaInicio;
+            // Mostrar feedback visual
+            const btnProcesar = document.getElementById('btnProcesar');
+            const spinner = document.getElementById('spinner');
+            btnProcesar.disabled = true;
+            spinner.style.display = 'block';
 
+            const { startdate, anio, mes } = datosFechaInicio;
             const periodo = obtenerPeriodoDesdeFecha(anio, mes);
             const carreraSeleccionada = obtenerCarreraSeleccionada();
-            if (!carreraSeleccionada) return;
+            if (!carreraSeleccionada) {
+                btnProcesar.disabled = false;
+                spinner.style.display = 'none';
+                return;
+            }
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: "array" });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                let rows = XLSX.utils.sheet_to_json(sheet);
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: "array" });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    let rows = XLSX.utils.sheet_to_json(sheet);
 
-                resultadoPreview = [];
-                resultadoCategorias = [];
+                    resultadoPreview = [];
+                    resultadoCategorias = [];
 
-                const headers = [
-                    "shortname", "fullname", "carrera_aula", "turno", "horario",
-                    "dni_docente", "docente", "celular_docente", "acceso_docente",
-                    "tutor", "numero_estudiantes", "url"
-                ];
+                    const headers = [
+                        "shortname", "fullname", "carrera_aula", "turno", "horario",
+                        "dni_docente", "docente", "celular_docente", "acceso_docente",
+                        "tutor", "numero_estudiantes", "url"
+                    ];
 
-                resultadoPreview.push(headers);
+                    resultadoPreview.push(headers);
 
-                resultadoCategorias.push([
-                    "category_path",
-                    "shortname",
-                    "fullname",
-                    "format",
-                    "templatecourse",
-                    "startdate",
-                    "enddate"
-                ]);
+                    resultadoCategorias.push([
+                        "category_path",
+                        "shortname",
+                        "fullname",
+                        "format",
+                        "templatecourse",
+                        "startdate",
+                        "enddate"
+                    ]);
 
-                rows.forEach(r => {
-                    const turno = normalizarTurno(r.TURNO);
+                    rows.forEach(r => {
+                        const turno = normalizarTurno(r.TURNO);
+                        const carreraLimpia = carreraSeleccionada.nombre;
+                        const carrera3 = carreraSeleccionada.abrev;
+                        const ciclo = normalizarCiclo(r.CICLO);
+                        const horario = r.horario || r.HORARIO || "";
+                        const cantidad = r.CANTIDAD || "";
 
-                    const carreraLimpia = carreraSeleccionada.nombre;
-                    const carrera3 = carreraSeleccionada.abrev;
+                        const cursos = [];
 
-                    const ciclo = normalizarCiclo(r.CICLO);
-                    const horario = r.horario || r.HORARIO || "";
-                    const cantidad = r.CANTIDAD || "";
+                        // CURSO 1
+                        if (r["CURSO 1"]) {
+                            cursos.push({
+                                curso: limpiarTexto(r["CURSO 1"]),
+                                local: normalizarLocal(r["LOCAL 1"])
+                            });
+                        }
 
-                    const cursos = [];
+                        // CURSO 2
+                        if (r["CURSO 2"]) {
+                            cursos.push({
+                                curso: limpiarTexto(r["CURSO 2"]),
+                                local: normalizarLocal(r["LOCAL 2"] || r["LOCAL 1"])
+                            });
+                        }
 
-                    // CURSO 1
-                    if (r["CURSO 1"]) {
-                        cursos.push({
-                            curso: limpiarTexto(r["CURSO 1"]),
-                            local: normalizarLocal(r["LOCAL 1"])
+                        cursos.forEach((c, i) => {
+                            const sufijo = cursos.length > 1 ? (i === 0 ? "-A" : "-B") : "";
+                            const aula = obtenerAulaPorCurso(r, i, cursos.length);
+                            const curso4 = primerasLetras(c.curso, 4);
+                            const docenteFinal = obtenerDocentePorCurso(r, i, cursos.length);
+                            const telefonoFinal = obtenerTelefonoPorCurso(r, i, cursos.length);
+
+                            const shortname = `AULA${aula}${turno.corto}${sufijo}-${c.local.abrev}-${periodo.abrevMes}${periodo.anioCorto}-${carrera3}-${ciclo}-${curso4}`;
+                            const nombreCurso = limpiarTexto(c.curso);
+                            const fullname = `AULA-${aula}${sufijo}-${carrera3}-${ciclo}-${periodo.abrevMes}${periodo.anioCorto}-${nombreCurso} (${c.local.full}-${turno.completo})`;
+
+                            resultadoPreview.push([
+                                U(shortname),
+                                U(fullname),
+                                U(carreraLimpia),
+                                U(turno.completo),
+                                U(horario),
+                                "",
+                                U(formatearDocente(docenteFinal)),
+                                U(telefonoFinal),
+                                "SI",
+                                "",
+                                U(cantidad),
+                                ""
+                            ]);
+
+                            // CSV de categorías
+                            resultadoCategorias.push([
+                                U(`${periodo.anio} / ${periodo.nombreMes} / ${carreraLimpia} / ${c.local.full} / ${ciclo}C`),
+                                U(shortname),
+                                U(fullname),
+                                "tiles",
+                                "MODZOOM2",
+                                startdate,
+                                "0"
+                            ]);
                         });
-                    }
-
-                    // CURSO 2
-                    if (r["CURSO 2"]) {
-                        cursos.push({
-                            curso: limpiarTexto(r["CURSO 2"]),
-                            local: normalizarLocal(r["LOCAL 2"] || r["LOCAL 1"])
-                        });
-                    }
-
-                    cursos.forEach((c, i) => {
-                        const sufijo = cursos.length > 1 ? (i === 0 ? "-A" : "-B") : "";
-
-                        const aula = obtenerAulaPorCurso(r, i, cursos.length);
-                        const curso4 = primerasLetras(c.curso, 4);
-
-                        const docenteFinal = obtenerDocentePorCurso(r, i, cursos.length);
-                        const telefonoFinal = obtenerTelefonoPorCurso(r, i, cursos.length);
-
-                        const shortname =  `AULA${aula}${turno.corto}${sufijo}-${c.local.abrev}-${periodo.abrevMes}${periodo.anioCorto}-${carrera3}-${ciclo}-${curso4}`;
-                        const nombreCurso = limpiarTexto(c.curso);
-                        const fullname = `AULA-${aula}${sufijo}-${carrera3}-${ciclo}-${periodo.abrevMes}${periodo.anioCorto}-${nombreCurso} (${c.local.full}-${turno.completo})`;
-                        
-                        resultadoPreview.push([
-                            U(shortname),
-                            U(fullname),
-                            U(carreraLimpia),
-                            U(turno.completo),
-                            U(horario),
-                            "",
-                            U(formatearDocente(docenteFinal)),
-                            U(telefonoFinal),
-                            "SI",
-                            "",
-                            U(cantidad),
-                            ""
-                        ]);
-
-                        // CSV de categorías
-                        resultadoCategorias.push([
-                            U(`${periodo.anio} / ${periodo.nombreMes} / ${carreraLimpia} / ${c.local.full} / ${ciclo}C`),
-                            U(shortname),
-                            U(fullname),
-                            "tiles",
-                            "MODZOOM2",
-                            startdate,
-                            "0"
-                        ]);
                     });
-                });
 
-                renderPreviewTable();
+                    renderPreviewTable();
+                    
+                    // Mostrar resultados y botones de descarga
+                    document.getElementById('resultsSection').style.display = 'block';
+                    document.getElementById('btnDescargar').style.display = 'inline-flex';
+                    document.getElementById('btnDescargarCat').style.display = 'inline-flex';
+                    document.getElementById('btnSoloPath').style.display = 'inline-flex';
+                    document.getElementById('rowCountBadge').textContent = `${resultadoPreview.length - 1} filas procesadas`;
+
+                } catch (error) {
+                    console.error(error);
+                    alert("Error al procesar el archivo. Verifique el formato.");
+                } finally {
+                    btnProcesar.disabled = false;
+                    spinner.style.display = 'none';
+                }
             };
 
             reader.readAsArrayBuffer(file);
@@ -638,6 +981,10 @@
                 return;
             }
 
+            const carrera = obtenerCarreraSeleccionada();
+            const abrev = carrera ? carrera.abrev : "";
+            const fileName = abrev ? `cursos-${abrev}.csv` : "cursos.csv";
+
             const csv = resultadoPreview
                 .map(row => row.map(csvCell).join(";"))
                 .join("\n");
@@ -648,7 +995,40 @@
 
             const a = document.createElement("a");
             a.href = url;
-            a.download = "cursos.csv";
+            a.download = fileName;
+            a.click();
+        }
+        function descargarSoloPath() {
+            if (resultadoCategorias.length <= 1) {
+                alert("No hay datos de categorías");
+                return;
+            }
+
+            // El primer elemento es el encabezado, lo omitimos
+            // La columna category_path es la primera (índice 0)
+            const paths = resultadoCategorias.slice(1).map(row => row[0]);
+            
+            // Eliminar duplicados y ordenar
+            const pathsUnicos = [...new Set(paths)].sort();
+
+            const carrera = obtenerCarreraSeleccionada();
+            const abrev = carrera ? carrera.abrev : "";
+            const fileName = abrev ? `paths-${abrev}.csv` : "paths.csv";
+
+            // Incluir encabezado
+            const dataFinal = [["category_path"], ...pathsUnicos.map(p => [p])];
+
+            const csv = dataFinal
+                .map(row => row.map(csvCell).join(";"))
+                .join("\n");
+
+            const BOM = "\uFEFF";
+            const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
             a.click();
         }
     </script>
